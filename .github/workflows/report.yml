@@ -36,10 +36,13 @@ jobs:
         run: |
           docker exec sqlserver /opt/mssql-tools18/bin/sqlcmd \
             -S localhost -U sa -P "$SA_PASSWORD" -C -d EmpresaDB \
-            -s "," -W -Q "SET NOCOUNT ON; SELECT v.VentaID, v.Producto, v.Cantidad, v.Fecha, a.Mensaje FROM Ventas v JOIN AuditoriaVentas a ON a.VentaID = v.VentaID" \
+            -s "," -W -Q "SET NOCOUNT ON; SELECT v.VentaID, v.Producto, v.Cantidad, CONVERT(VARCHAR(19), v.Fecha, 120) AS Fecha, a.Mensaje FROM Ventas v JOIN AuditoriaVentas a ON a.VentaID = v.VentaID ORDER BY v.VentaID" \
             -o /tmp/reporte.csv
           docker cp sqlserver:/tmp/reporte.csv reporte_ventas.csv
           sed -i '2d' reporte_ventas.csv   # quita la línea de guiones
+          # Agrega BOM UTF-8 para que Excel muestre bien los acentos
+          printf '\xEF\xBB\xBF' | cat - reporte_ventas.csv > reporte_tmp.csv
+          mv reporte_tmp.csv reporte_ventas.csv
           cat reporte_ventas.csv
 
       - name: Publicar Artifact
