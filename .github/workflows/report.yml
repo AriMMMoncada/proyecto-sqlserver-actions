@@ -1,0 +1,49 @@
+name: Reporte CSV programado
+
+on:
+  schedule:
+    - cron: '0 12 * * *'   # todos los días 12:00 UTC
+  workflow_dispatch:
+
+env:
+  SA_PASSWORD: ${{ secrets.MSSQL_SA_PASSWORD }}
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Iniciar SQL Server
+        run: |
+          docker run -d --name sqlserver \
+            -e ACCEPT_EULA=Y -e MSSQL_PID=Developer \
+            -e MSSQL_SA_PASSWORD="$SA_PASSWORD" \
+            -v ${{ github.workspace }}/sql:/sql \
+            mcr.microsoft.com/mssql/server:2022-latest
+          for i in {1..30}; do
+            docker exec sqlserver /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$SA_PASSWORD" -C -Q "SELECT 1" >/dev/null 2>&1 && break
+            sleep 3
+          done
+
+      - name: Cargar base de datos
+        run: |
+          for f in create_database create_tables create_procedure create_trigger test_data; do
+            docker exec sqlserver /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$SA_PASSWORD" -C -b -i /sql/$f.sql
+          done
+
+      - name: Generar CSV
+        run: |
+          docker exec sqlserver /opt/mssql-tools18/bin/sqlcmd \
+            -S localhost -U sa -P "$SA_PASSWORD" -C -d EmpresaDB \
+            -s "," -W -Q "SET NOCOUNT ON; SELECT v.VentaID, v.Producto, v.Cantidad, v.Fecha, a.Mensaje FROM Ventas v JOIN AuditoriaVentas a ON a.VentaID = v.VentaID" \
+            -o /tmp/reporte.csv
+          docker cp sqlserver:/tmp/reporte.csv reporte_ventas.csv
+          sed -i '2d' reporte_ventas.csv   # quita la línea de guiones
+          cat reporte_ventas.csv
+
+      - name: Publicar Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: reporte-ventas
+          path: reporte_ventas.csv
