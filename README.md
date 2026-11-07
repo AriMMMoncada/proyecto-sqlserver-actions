@@ -1,4 +1,3 @@
-[README.md](https://github.com/user-attachments/files/34505425/README.md)
 # Proyecto Integrador: GitHub Actions + Docker + Microsoft SQL Server
 
 Automatización del despliegue de una base de datos **Microsoft SQL Server** usando **GitHub Actions** y **Docker**. El proyecto levanta una instancia de SQL Server en un contenedor, crea la base de datos `EmpresaDB` y ejecuta lógica de negocio mediante tablas, un procedimiento almacenado y un trigger. Además, un segundo workflow programado genera un reporte CSV y lo publica como Artifact.
